@@ -1,0 +1,8 @@
+db:
+  productin:
+  development:
+    adapter:  'mysql2'
+    host:     'localhost'
+    username: 'root'
+    password: 'passwordPASSWORD@999'
+    database: 'crawl'
