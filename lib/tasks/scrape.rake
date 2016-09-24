@@ -17,7 +17,7 @@ namespace :scrape do
       @input_date_arr = Array.new  # 挿入データ用配列
     end
 
-    # 実行関数
+    # 実行関数 請勿override
     def exec
       doc = make_url_xml
       set_target_list(doc)
@@ -75,7 +75,7 @@ namespace :scrape do
 
     def logger_output(msg)
       logger = Logger.new('log/development.log')
-      logger.info("========= #{msg} でエラー ==========")
+      logger.info("========= #{msg} エラー ==========")
     end
   end
 
@@ -96,11 +96,13 @@ namespace :scrape do
       end
 
       def set_date_arr(list)
+        # [開始日～終了日]という値で入る
         span_tag = get_tag_css(list, tag: 'span')
         regexp = /(\d+)\年(\d+)\月(\d+)\日/
         i = 0
         span_tag.each do |span|
           span.inner_text.scan(regexp).each do |date|
+            # 偶数は開始日、奇数は終了日
             if i.even?
               @start_date_arr.push(date.join(','))
             else
