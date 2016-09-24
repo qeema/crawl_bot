@@ -1,0 +1,32 @@
+# model作成コマンド
+# typeカラムに注意
+# http://qiita.com/ryonext/items/1a813639ab2a2a00058e
+rails g model pref name:string
+rails g model museum name:string type:integer url:string open_time:time close_time:time sleep:string address:string del_flg:boolean pref:references
+rails g model spexhabit name:string url:string start_date:datetime end_date:datetime del_flg:boolean status:integer museum:references
+
+
+pref = Pref.new
+pref.name = '東京都'
+pref.save
+
+# 定型作成文
+# 
+museum = Museum.new
+museum.name = '東京国立博物館'
+museum.url = 'http://www.tnm.jp/'
+museum.open_time = '9:30:00'
+museum.close_time = '17:00:00'
+museum.sleep = 'Monday'
+museum.pref = pref
+museum.address = '〒110-8712　東京都台東区上野公園13-9　東京国立博物館'
+museum.del_flg = 0
+museum.type = 10
+museum.save
+
+#
+spexhabit = Spexhabit.new
+spexhabit.name = 'test'
+spexhabit.museum = museum
+spexhabit.save
+

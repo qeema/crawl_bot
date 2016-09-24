@@ -47,6 +47,7 @@ end
 
 
 gem 'mysql2'
+gem 'nokogiri'
 
 #rails console to user pry
 gem 'pry-rails',group:[:development, :test]
