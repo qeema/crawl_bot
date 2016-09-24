@@ -3,7 +3,7 @@ require 'open-uri'
 require 'kconv'
 require 'date'
 
-url = 'http://192.168.11.124/nmwa/upcoming.html'
+url = 'http://192.168.1.124/nmwa/upcoming.html'
 #url = 'http://www.nmwa.go.jp/jp/exhibitions/upcoming.html'
 #url = 'http://192.168.11.124/tohaku/rss.html'
 
@@ -40,9 +40,14 @@ span_tag.each do |span|
   end
 end
 
+
+
 if text_arr.count && start_date_arr.count && end_date_arr.count
-  count = text_arr.count
-  count.times do |i|
+  text_arr.count.times do |i|
+    p text_arr
+    p start_date_arr
+    p end_date_arr
+
 # TODO datetime入れてdbに挿入すること
   end
 else
@@ -54,9 +59,4 @@ p start_date_arr[0]
 p date = start_date_arr[0].split(',')
 puts DateTime.new(date[0].to_i, date[1].to_i, date[2].to_i)
 
-if text_arr.count === date_arr.count
-  p '配列数一致、処理続行'
-else
-  p '不一致、エラー'
-end
 

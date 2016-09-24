@@ -10,12 +10,29 @@ ActiveRecord::Base.establish_connection(
 )
 
 class Museum < ActiveRecord::Base
+  has_many :sphabits
 end
 
+class Sphabit < ActiveRecord::Base
+  belongs_to :museum
+end
+
+museum = Museum.where(:id => 1)
+sphabit = Sphabit.new
+sphabit.name = "tesn"
+sphabit.museum_id = museum
+sphabit.save
+p sphabit.museum
+
+=begin
+p sphabit.museum.name
+=end
+
+=begin
 museum = Museum.new(:name => "test")
 museum.save
 
 p Museum.all
-
+=end
 
 
