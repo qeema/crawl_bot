@@ -11,72 +11,108 @@ namespace :scrape do
     def initialize(url:)
       @url            = url        # scrape用url
       @text_arr       = Array.new  # 特別展名
-      @date_arr       = Array.new  # 日時配列（[foo~bar]の形で曜日が入っている場合）
       @start_date_arr = Array.new  # 開始日
-      @end_date_arr   = Array.new  # 終了日付
+      @end_date_arr   = Array.new  # 終了日
+      @arr_count      = 0          # text_arr・start_date_arr・end_date_arrの数
       @input_date_arr = Array.new  # 挿入データ用配列
     end
 
+    # 実行関数
     def exec
       doc = make_url_xml
-      set_values(doc)
+      set_target_list(doc)
+      is_values_count_correct?(@text_arr, @start_date_arr, @end_date_arr)
       insert_db
     end
 
-=begin
-    # 各サイトに応じてオーバーライドして実行
-    # クラス変数にスクレイピング結果を設定する
-    def set_text_arr(text_arr)
-      @text_arr = text_arr
-    end
-    def set_date_arr(date_arr)
-      @date_arr = date_arr
-    end
-    def set_start_date_arr(start_date_arr)
-      @start_date_arr = start_date_arr
-    end
-    def set_end_date_arr(end_date_arr)
-      @end_date_arr = end_date_arr
-    end
-=end
-
-    def set_values(doc)
-      @input_date_arr.push(@text_arr)
-      @input_date_arr.push(@start_date_arr)
-      @input_date_arr.push(@end_date_arr)
-    end
-
+    # nokogiriでurlを解析してxmlにする(nokogiri XML<HTML)
     def make_url_xml
       html = open(@url, "r:binary").read
       doc  = Nokogiri::HTML(html.toutf8, nil, 'utf-8')
       return doc
     end
 
-    def insert_db
+    # targetのtagリスト設定,特別展名と終了開始日を含んだリスト 要override
+    def set_target_list(doc)
+      @text_arr = set_text_arr(list)
+      @date_arr = set_date_arr(list)
     end
 
-    def logger_output(task)
+    # text=特別展名の取得  要override
+    def set_text_arr(list)
+      get_tag_css(list,tag)
+    end
+
+    # 終了開始日の取得  要override
+    def set_date_arr(list)
+      get_tag_css(list,tag)
+      @start_date_arr = start_date_arr
+      @end_date_arr = end_date_arr
+    end
+
+    # nokogiriで解析したxml nodeからcssで選択して値を取得
+    def get_tag_css(list, tag:)
+      return list.css(tag)
+    end
+
+    # 特別展名・開始日・終了日が正しく取得できていることを確認する
+    def is_values_count_correct?(text_arr, start_date_arr, end_date_arr)
+      unless text_arr.count === start_date_arr.count && text_arr.count === end_date_arr.count
+        logger_output("text_arr,start_date_arr,end_date_arr count数不一致")
+        exit()
+      else
+        @arr_count = text_arr.count
+      end
+    end
+
+    # dbに挿入
+    def insert_db
+      p @text_arr
+      p @start_date_arr
+      p @end_date_arr
+      p @arr_count
+    end
+
+    def logger_output(msg)
       logger = Logger.new('log/development.log')
-      logger.info("#{task} が起動されました。")
+      logger.info("========= #{msg} でエラー ==========")
     end
   end
 
   desc 'get 国立西洋美術館'
   task :nmwa => :environment do
-    scrape = Template.new(url: 'http://192.168.1.124/nmwa/upcoming.html')
+    class Nmwa < Template
+      def set_target_list(doc)
+        list = doc.css('ul.futureexhibitionlist')
+        set_text_arr(list)
+        set_date_arr(list)
+      end
+
+      def set_text_arr(list)
+        a_tag = get_tag_css(list, tag: 'a')
+        a_tag.each do |a|
+          @text_arr.push(a.inner_text)
+        end
+      end
+
+      def set_date_arr(list)
+        span_tag = get_tag_css(list, tag: 'span')
+        regexp = /(\d+)\年(\d+)\月(\d+)\日/
+        i = 0
+        span_tag.each do |span|
+          span.inner_text.scan(regexp).each do |date|
+            if i.even?
+              @start_date_arr.push(date.join(','))
+            else
+              @end_date_arr.push(date.join(','))
+            end
+            i += 1
+          end
+        end
+      end
+    end
+
+    scrape = Nmwa.new(url: 'http://192.168.1.124/nmwa/upcoming.html')
     scrape.exec
-
-
-=begin
-    i = 0
-    html = open(url, "r:binary").read
-    doc = Nokogiri::HTML(html.toutf8, nil, 'utf-8')
-    # tagで抽出
-    list = doc.css('ul.futureexhibitionlist')
-    a_tag = list.css('a')
-    span_tag = list.css('span')
-    #p a_tag
-    #p span_tag
-=end
   end
 end
