@@ -1,31 +1,34 @@
+# webスクレイピングコマンドファイル
+# taskに各博物館・美術館を定義してコマンドを実行する
 # ex. bundle exec rake scrape:foo
+# Templateクラスを継承して、execメソッドで実行するように実装を行うこと
 
 require 'open-uri'
 require 'nokogiri'
 require 'kconv'
 require 'date'
 
-# 環境指定・config.ymlの読み込みに使用
+# 環境指定 config.ymlの読み込みに使用
 #env    = 'production'
 env    = 'development'
 config = YAML.load_file('lib/tasks/config.yml')
 
+# コマンド定義
 namespace :scrape do
 
   # テンプレート 各コマンドはこのclassを使用すること
   class Template
     def initialize(url:, current_dir:, museum_id:)
-      @url            = url         # scrape用url
+      @url            = url         # スクレイピング対象url
       @current_dir    = current_dir # 相対パス用カレントディレクトリ
       @text_arr       = Array.new   # 特別展名
-      @start_date_arr = Array.new   # 開始日
-      @end_date_arr   = Array.new   # 終了日
       @url_arr        = Array.new   # 特別展url
-      @arr_count      = 0           # text_arr・start_date_arr・end_date_arrの数
+      @start_date_arr = Array.new   # 特別展開始日
+      @end_date_arr   = Array.new   # 特別展終了日
+      @arr_count      = 0           # text_arr・url_arr・start_date_arr・end_date_arrのカウント数
       @museum         = String.new  # 対象博物館名
-      @input_date_arr = Array.new   # 挿入データ用配列
 
-      select_museum(museum_id)
+      set_museum_info(museum_id)      # 挿入用museumデータ取得
     end
 
     # 実行関数 請勿override
@@ -79,6 +82,7 @@ namespace :scrape do
         exit()
       else
         @arr_count = text_arr.count
+        return true
       end
     end
 
@@ -92,13 +96,14 @@ namespace :scrape do
       end
     end
 
-    # idから対象の博物館名を取得
-    def select_museum(museum_id)
+    # idから対象のmuseum情報を設定
+    def set_museum_info(museum_id)
       @museum = Museum.find(museum_id)
     end
 
     # dbに挿入
     def insert_db
+      # is_values_count_correct?メソッドで確認後に実行すること
       @arr_count.times do |i|
         spexhabit         = Spexhabit.new
         spexhabit.museum  = @museum
