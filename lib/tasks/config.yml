@@ -1,0 +1,10 @@
+production:
+  nmwa:
+    url:         'http://www.nmwa.go.jp/jp/exhibitions/upcoming.html'
+    current_dir: 'http://www.nmwa.go.jp/jp/exhibitions/'
+    museum_id:   1
+development:
+  nmwa:
+    url:         'http://192.168.11.124/nmwa/upcoming.html'
+    current_dir: 'http://192.168.11.124/nmwa/'
+    museum_id:   1

@@ -5,6 +5,11 @@ require 'nokogiri'
 require 'kconv'
 require 'date'
 
+# 環境指定・config.ymlの読み込みに使用
+#env    = 'production'
+env    = 'development'
+config = YAML.load_file('lib/tasks/config.yml')
+
 namespace :scrape do
 
   # テンプレート 各コマンドはこのclassを使用すること
@@ -77,8 +82,10 @@ namespace :scrape do
       end
     end
 
+    # dbに登録済みか確認
     def is_value_exists?(text, sp_start, sp_end)
       if Spexhabit.find_by(name: text, start_date: sp_start, end_date: sp_end)
+        logger_output("登録済み")
         return true
       else
         return false
@@ -118,9 +125,10 @@ namespace :scrape do
       end
     end
 
+    # log出力用
     def logger_output(msg)
       logger = Logger.new('log/development.log')
-      logger.info("========= #{msg} ==========")
+      logger.info("========= #{msg} ==========\n")
     end
   end
 
@@ -175,10 +183,16 @@ namespace :scrape do
 
     # 処理実行
     scrape = Nmwa.new(
-      url:         'http://www.nmwa.go.jp/jp/exhibitions/upcoming.html',
-      current_dir: 'http://www.nmwa.go.jp/jp/exhibitions/',
-      museum_id:   1
+      url:         config[env]['nmwa']['url'],
+      current_dir: config[env]['nmwa']['current_dir'],
+      museum_id:   config[env]['nmwa']['museum_id']
     )
     scrape.exec
+  end
+
+  # 東京国立博物館情報取得
+  desc 'get 東京国立博物館'
+  task :tnm => :environment do
+    p "test"
   end
 end
