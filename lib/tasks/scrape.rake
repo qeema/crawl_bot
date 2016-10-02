@@ -2,6 +2,8 @@
 # taskに各博物館・美術館を定義してコマンドを実行する
 # ex. bundle exec rake scrape:foo
 # Templateクラスを継承して、execメソッドで実行するように実装を行うこと
+# TODO urlとかをconfに持たせる
+# TODO tmn追加
 
 require 'open-uri'
 require 'nokogiri'
@@ -33,10 +35,14 @@ namespace :scrape do
 
     # 実行関数 請勿override
     def exec
-      doc = make_url_xml
-      set_target_list(doc)
-      is_values_count_correct?(@text_arr, @url_arr, @start_date_arr, @end_date_arr)
-      insert_db
+      doc = make_url_xml      # url解析xml化
+      set_target_list(doc)    # text,start,end設定
+      set_values_count_correct?(@text_arr, @url_arr, @start_date_arr, @end_date_arr) # 取得データの整合性チェック
+      @start_date_arr = change_string_to_datetime(@start_date_arr)         # datetime型に修正
+      @end_date_arr   = change_string_to_datetime(@end_date_arr)           # datetime型に修正
+      del_existed_spexhabit   # DBに存在するデータは削除
+      is_update_db?           # クラス変数に値が設定されているか確認
+      insert_db               # DB挿入
     end
 
     # nokogiriでurlを解析してxmlにする(nokogiri XML<HTML)
@@ -76,23 +82,13 @@ namespace :scrape do
     end
 
     # 特別展名・開始日・終了日が正しく取得できていることを確認する
-    def is_values_count_correct?(text_arr, url_arr, start_date_arr, end_date_arr)
+    def set_values_count_correct?(text_arr, url_arr, start_date_arr, end_date_arr)
       unless text_arr.count === start_date_arr.count && text_arr.count === url_arr.count && text_arr.count === end_date_arr.count
-        logger_output("text_arr,url_arr,start_date_arr,end_date_arr count数不一致")
+        logger_output("method : set_values_count_correct? \n message : text_arr,start_date_arr,end_date_arr count数不一致")
         exit()
       else
         @arr_count = text_arr.count
         return true
-      end
-    end
-
-    # dbに登録済みか確認
-    def is_value_exists?(text, sp_start, sp_end)
-      if Spexhabit.find_by(name: text, start_date: sp_start, end_date: sp_end)
-        logger_output("登録済み")
-        return true
-      else
-        return false
       end
     end
 
@@ -101,39 +97,68 @@ namespace :scrape do
       @museum = Museum.find(museum_id)
     end
 
-    # dbに挿入
-    def insert_db
-      # is_values_count_correct?メソッドで確認後に実行すること
-      @arr_count.times do |i|
-        spexhabit         = Spexhabit.new
-        spexhabit.museum  = @museum
-        spexhabit.name    = @text_arr[i]
-        spexhabit.url     = @url_arr[i]
-        spexhabit.del_flg = false
-
-        # 開始日・終了日を年月日に分割してDBに挿入する型にする
-        # ["2016,10,15"] → ["year","month","day"]
-        splited_date         = @start_date_arr[i].split(',')
-        spexhabit.start_date = DateTime.new(splited_date[0].to_i, splited_date[1].to_i, splited_date[2].to_i)
-        splited_date         = @end_date_arr[i].split(',')
-        spexhabit.end_date   = DateTime.new(splited_date[0].to_i, splited_date[1].to_i, splited_date[2].to_i)
-
-        # 重複データがない場合はdbにデータ挿入
-        unless is_value_exists?(spexhabit.name, spexhabit.start_date, spexhabit.end_date)
-          if spexhabit.save
-            logger_output('下記ステータスにてinsert正常終了')
-            logger_output(spexhabit.inspect)
-          else
-            logger_output('insert_dbでエラー')
-          end
-        end
+    # DBのdatetime型に合わせる
+    def change_string_to_datetime(date_arr)
+      date_time_arr = date_arr.map do |value|
+        # ['year', 'month', 'day']に変換
+        value_ymd = value.split(',')
+        DateTime.new(value_ymd[0].to_i, value_ymd[1].to_i, value_ymd[2].to_i)
       end
     end
 
-    # log出力用
+    # DBに存在するデータを配列から削除
+    def del_existed_spexhabit
+      @arr_count.times do |i|
+        start_date = @start_date_arr[i] + Rational(9, 24)
+        end_date   = @end_date_arr[i]   + Rational(9, 24)
+        if Spexhabit.find_by(name: @text_arr[i], start_date: start_date, end_date: end_date)
+          @text_arr[i]       = nil
+          @start_date_arr[i] = nil
+          @end_date_arr[i]   = nil
+        end
+      end
+      @text_arr.compact!
+      @start_date_arr.compact!
+      @end_date_arr.compact!
+      self.set_values_count_correct?(@text_arr,  @url_arr, @start_date_arr, @end_date_arr)
+    end
+
+    # クラス変数の値が入っているかを確認する
+    def is_update_db?
+      unless @text_arr.count && @start_date_arr.count && @end_date_arr.count
+        logger_output("method : is_update_db \n message : text_arr,start_date_arr,end_date_arr count数不一致")
+        exit()
+      end
+
+      if @text_arr == [] && @start_date_arr == [] && @end_date_arr == []
+        logger_output("method : is_update_db \n message : all nil. insert必要なし")
+        exit()
+      end
+    end
+
+    # DB挿入実行
+    def insert_db
+      if @arr_count.times do |i|
+          spexhabit            = Spexhabit.new
+          spexhabit.name       = @text_arr[i]
+          spexhabit.url        = @url
+          spexhabit.start_date = @start_date_arr[i]
+          spexhabit.end_date   = @end_date_arr[i]
+          spexhabit.del_flg    = 0
+          spexhabit.status     = 0
+          spexhabit.museum     = @museum
+          spexhabit.save
+          logger_output("method : insert_db \n message : insert完了 #{spexhabit.name}")
+        end
+      else
+        logger_output("method : insert_db \n message : insert失敗！！！")
+      end
+    end
+
+    # logger出力
     def logger_output(msg)
       logger = Logger.new('log/development.log')
-      logger.info("========= #{msg} ==========\n")
+      logger.info("========= #{msg}  ==========")
     end
   end
 
